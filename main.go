@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math/rand"
+	"strconv"
 	"time"
 
 	"github.com/jedib0t/go-pretty/v6/table"
@@ -12,22 +13,20 @@ const (
 	clearScreen = "\033[H\033[2J"
 )
 
-type Hand struct {
-	rolls  []int
-	pairs  int
-	trips  []int
-	quads  []int
-	quints []int
-	sixes  bool
-	score  int
+type Player struct {
+	startingHand []int
+	keptDice     []int
+	Score        int
+	diceLeft     int
 }
 
 func main() {
 
 	showRules()
 
-	hand := rollHand()
-	fmt.Printf("Pre sort: %v", hand.rolls)
+	player := newPlayer()
+
+	playHand(player)
 
 }
 
@@ -64,6 +63,40 @@ func showRules() {
 
 }
 
+func playHand(player Player) Player {
+
+	fmt.Print(clearScreen)
+	fmt.Println("Here is your starting hand:")
+
+	t := table.NewWriter()
+	t.AppendHeader(table.Row{"Die 1", "Die 2", "Die 3", "Die 4", "Die 5", "Die 6"})
+	t.AppendRow(table.Row{player.startingHand[0], player.startingHand[1], player.startingHand[2],
+		player.startingHand[3], player.startingHand[4], player.startingHand[5]})
+	fmt.Println(t.Render())
+
+	for {
+		var option string
+
+		fmt.Println("Which dice will you keep?")
+
+		fmt.Printf("Press 1-%v, then press enter.  Enter D when done choosing.", len(player.startingHand))
+		fmt.Scanln(&option)
+
+		if option != "d" {
+			intOption, _ := strconv.Atoi(option)
+			player.keptDice = append(player.keptDice, player.startingHand[(intOption-1)])
+			player.diceLeft -= 1
+			fmt.Println(player.keptDice)
+		} else {
+			scoreHand()
+			break
+		}
+	}
+	return player
+}
+func scoreHand() {
+
+}
 func rollDice() int {
 
 	source := rand.NewSource(time.Now().UnixNano())
@@ -79,31 +112,42 @@ func rollDice() int {
 	return roll
 }
 
-func rollHand() Hand {
+func newPlayer() Player {
 
-	var hand Hand
+	var player Player
 	for i := 0; i < 6; i++ {
 
-		hand.rolls = append(hand.rolls, rollDice())
+		player.startingHand = append(player.startingHand, rollDice())
 	}
+	player.Score = 0
+	player.diceLeft = 6
 
-	hand.rolls = sort(hand.rolls)
+	//hand.rolls = sort(hand.rolls)
 
-	return hand
+	return player
 }
 
-func ProcessHand(hand Hand) Hand {
+func rollHand(player Player) Player {
+	for i := 0, i < player.diceLeft; i++ {
 
-	last := hand.rolls[0]
+		player.startingHand = append(player.startingHand, rollDice())
+	}
+
+	return player
+}
+
+func ProcessHand(hand Player) Player {
+
+	last := hand.startingHand[0]
 	isSame := make([]int, 6)
 
-	for i := 1; i < len(hand.rolls); i++ {
-		if hand.rolls[i] == last {
+	for i := 1; i < len(hand.startingHand); i++ {
+		if hand.startingHand[i] == last {
 
 		}
 	}
 
-	for i, roll := range hand.rolls {
+	for i, roll := range hand.startingHand {
 		if roll == last {
 			isSame[i]++
 		} else {
