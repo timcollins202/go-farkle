@@ -57,6 +57,10 @@ func showRules() {
 
 	fmt.Println("You must keep at least one set, then reroll the remaining dice until you want to keep.")
 	fmt.Println("If a roll has no playable set, you've FARKLED and lose your turn.")
+	fmt.Println("Score 10,000 points to win! \n")
+	fmt.Println("Press Enter to start playing!")
+
+	fmt.Scanln()
 
 }
 
