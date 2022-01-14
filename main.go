@@ -14,10 +14,11 @@ const (
 )
 
 type Player struct {
-	startingHand []int
-	keptDice     []int
-	Score        int
-	diceLeft     int
+	rolls       []int
+	keptDice    []int
+	score       int
+	diceLeft    int
+	donePlaying bool
 }
 
 func main() {
@@ -26,7 +27,7 @@ func main() {
 
 	player := newPlayer()
 
-	playHand(player)
+	player = playStartingHand(player)
 
 }
 
@@ -63,40 +64,79 @@ func showRules() {
 
 }
 
-func playHand(player Player) Player {
+func playStartingHand(player Player) Player {
 
 	fmt.Print(clearScreen)
 	fmt.Println("Here is your starting hand:")
 
-	t := table.NewWriter()
-	t.AppendHeader(table.Row{"Die 1", "Die 2", "Die 3", "Die 4", "Die 5", "Die 6"})
-	t.AppendRow(table.Row{player.startingHand[0], player.startingHand[1], player.startingHand[2],
-		player.startingHand[3], player.startingHand[4], player.startingHand[5]})
+	t := generateDiceTable(player.rolls)
 	fmt.Println(t.Render())
+
+	for {
+		player = handleRollingOptions(player)
+
+		if !player.donePlaying {
+			player = playSubsequentHand(player)
+		}
+
+		return player
+	}
+}
+
+func playSubsequentHand(player Player) Player {
+
+	fmt.Print(clearScreen)
+	fmt.Println("Rerolling the remaining dice gets you...")
+
+	player = rollHand(player)
+
+	rollTable := generateDiceTable(player.rolls)
+	fmt.Println(rollTable.Render())
+
+	fmt.Println("\nYou're holding:")
+
+	holdingTable := generateDiceTable(player.keptDice)
+	fmt.Println(holdingTable.Render())
+
+	for {
+		player = handleRollingOptions(player)
+
+		if player.donePlaying {
+			return player
+		}
+	}
+}
+
+func handleRollingOptions(player Player) Player {
 
 	for {
 		var option string
 
 		fmt.Println("Which dice will you keep?")
-
-		fmt.Printf("Press 1-%v, then press enter.  Enter D when done choosing.", len(player.startingHand))
+		fmt.Printf("Press 1-%v, then press enter.  Enter D when done choosing. \n", player.diceLeft)
 		fmt.Scanln(&option)
 
 		if option != "d" {
 			intOption, _ := strconv.Atoi(option)
-			player.keptDice = append(player.keptDice, player.startingHand[(intOption-1)])
+
+			if intOption > 0 {
+				player.keptDice = append(player.keptDice, player.rolls[(intOption-1)])
+			} else {
+				player.keptDice = append(player.keptDice, player.rolls[0])
+			}
+
 			player.diceLeft -= 1
-			fmt.Println(player.keptDice)
+			//fmt.Println(player.keptDice)
+
+			if player.diceLeft == 0 {
+				player.donePlaying = true
+			}
 		} else {
-			scoreHand()
-			break
+			return player
 		}
 	}
-	return player
 }
-func scoreHand() {
 
-}
 func rollDice() int {
 
 	source := rand.NewSource(time.Now().UnixNano())
@@ -112,15 +152,32 @@ func rollDice() int {
 	return roll
 }
 
+func generateDiceTable(values []int) table.Writer {
+
+	t := table.NewWriter()
+	header := table.Row{}
+	row := table.Row{}
+
+	for i := 0; i < len(values); i++ {
+		dieNo := "Die " + strconv.Itoa(i+1)
+		header = append(header, dieNo)
+		row = append(row, values[i])
+	}
+
+	t.AppendHeader(header)
+	t.AppendRow(row)
+
+	return t
+
+}
+
 func newPlayer() Player {
 
 	var player Player
-	for i := 0; i < 6; i++ {
-
-		player.startingHand = append(player.startingHand, rollDice())
-	}
-	player.Score = 0
+	player.score = 0
 	player.diceLeft = 6
+	player = rollHand(player)
+	player.donePlaying = false
 
 	//hand.rolls = sort(hand.rolls)
 
@@ -128,9 +185,11 @@ func newPlayer() Player {
 }
 
 func rollHand(player Player) Player {
-	for i := 0, i < player.diceLeft; i++ {
 
-		player.startingHand = append(player.startingHand, rollDice())
+	player.rolls = nil
+
+	for i := 0; i < player.diceLeft; i++ {
+		player.rolls = append(player.rolls, rollDice())
 	}
 
 	return player
@@ -138,16 +197,16 @@ func rollHand(player Player) Player {
 
 func ProcessHand(hand Player) Player {
 
-	last := hand.startingHand[0]
+	last := hand.rolls[0]
 	isSame := make([]int, 6)
 
-	for i := 1; i < len(hand.startingHand); i++ {
-		if hand.startingHand[i] == last {
+	for i := 1; i < len(hand.rolls); i++ {
+		if hand.rolls[i] == last {
 
 		}
 	}
 
-	for i, roll := range hand.startingHand {
+	for i, roll := range hand.rolls {
 		if roll == last {
 			isSame[i]++
 		} else {
