@@ -27,8 +27,15 @@ func main() {
 
 	player := newPlayer()
 
-	player = playStartingHand(player)
+	//player = playStartingHand(player)
 
+	for {
+		player = playSubsequentHand(player)
+
+		if player.donePlaying {
+			return
+		}
+	}
 }
 
 func showRules() {
@@ -86,17 +93,12 @@ func playStartingHand(player Player) Player {
 func playSubsequentHand(player Player) Player {
 
 	fmt.Print(clearScreen)
-	fmt.Println("Rerolling the remaining dice gets you...")
+	fmt.Println("You have rolled...")
 
 	player = rollHand(player)
 
 	rollTable := generateDiceTable(player.rolls)
 	fmt.Println(rollTable.Render())
-
-	fmt.Println("\nYou're holding:")
-
-	holdingTable := generateDiceTable(player.keptDice)
-	fmt.Println(holdingTable.Render())
 
 	for {
 		player = handleRollingOptions(player)
@@ -113,10 +115,16 @@ func handleRollingOptions(player Player) Player {
 		var option string
 
 		fmt.Println("Which dice will you keep?")
-		fmt.Printf("Press 1-%v, then press enter.  Enter D when done choosing. \n", player.diceLeft)
+		fmt.Printf("Enter 1-%v to keep a die.\n", player.diceLeft)
+		fmt.Println("Enter R to reroll remaining dice, or E to end turn.")
 		fmt.Scanln(&option)
 
-		if option != "d" {
+		if option == "" {
+			fmt.Printf("You must enter a number 1-%v, R to reroll or E to end turn.\n", player.diceLeft)
+			return player
+		}
+
+		if option != "r" && option != "e" {
 			intOption, _ := strconv.Atoi(option)
 
 			if intOption > 0 {
@@ -125,16 +133,97 @@ func handleRollingOptions(player Player) Player {
 				player.keptDice = append(player.keptDice, player.rolls[0])
 			}
 
+			player.rolls = append(player.rolls[:intOption-1], player.rolls[intOption:]...)
+
 			player.diceLeft -= 1
+
+			remainingTable := generateDiceTable(player.rolls)
+			fmt.Println(remainingTable.Render())
+
+			if len(player.keptDice) > 0 {
+				fmt.Println("\nYou're holding:")
+
+				holdingTable := generateDiceTable(player.keptDice)
+
+				if player.score > 0 {
+					holdingTable.SetCaption("Current Score: %v", player.score)
+				}
+
+				fmt.Println(holdingTable.Render())
+			}
+
 			//fmt.Println(player.keptDice)
 
-			if player.diceLeft == 0 {
-				player.donePlaying = true
-			}
-		} else {
+			// if player.diceLeft == 0 {
+			// 	player.donePlaying = true
+			// }
+		} else if option == "r" {
+			player.score += calculateScore(player.keptDice)
+			return player
+		} else if option == "e" {
+			player.score += calculateScore(player.keptDice)
+			player.donePlaying = true
 			return player
 		}
 	}
+}
+
+func calculateScore(keptDice []int) int {
+
+	score := 0
+	keptDice = sort(keptDice)
+
+	if len(keptDice) == 1 {
+
+		switch keptDice[0] {
+		case 1:
+			score += 100
+		case 5:
+			score += 50
+		}
+	}
+
+	if len(keptDice) == 3 {
+
+		switch sum(keptDice) {
+		case 3:
+			score += 300
+		case 6:
+			score += 200
+		case 9:
+			score += 300
+		case 12:
+			score += 400
+		case 15:
+			score += 500
+		case 18:
+			score += 600
+		}
+	}
+
+	if len(keptDice) == 4 {
+		if findOfAKinds(keptDice) {
+			score += 1000
+		}
+	}
+
+	if len(keptDice) == 5 {
+		if findOfAKinds(keptDice) {
+			score += 2000
+		}
+	}
+
+	if len(keptDice) == 6 {
+		if findOfAKinds(keptDice) {
+			score += 3000
+		} else if findThreePairs(keptDice) {
+			score += 1500
+		} else if findTwoTriplets(keptDice) {
+			score += 2500
+		}
+	}
+
+	return score
 }
 
 func rollDice() int {
@@ -217,68 +306,79 @@ func ProcessHand(hand Player) Player {
 	return hand
 }
 
-// func findSets(hand Hand) Hand {
+func findOfAKinds(keptDice []int) bool {
 
-// 	var dupes []int
-// 	visited := make(map[int]bool, 0)
+	last := 0
+	score := 0
 
-// 	for i := 0; i < len(hand.rolls); i++ {
-// 		if visited[hand.rolls[i]] == true {
-// 			dupes = append(dupes, hand.rolls[i])
-// 		} else {
-// 			visited[hand.rolls[i]] = true
-// 		}
-// 	}
+	for i := 0; i < len(keptDice); i++ {
+		if last == keptDice[i] {
+			score++
+		} else {
+			last = keptDice[i]
+		}
+	}
 
-// 	if len(dupes) == 0 {
-// 		hand.sixes = true
-// 		return hand
-// 	}
+	if score == (len(keptDice) - 1) {
+		return true
+	}
+	return false
 
-// 	if len(distinct(dupes)) == len(dupes) {
-// 		hand.pairs = append(hand.pairs, dupes...)
-// 		return hand
-// 	}
-// 	//count how many times each duplicate number appears
-// 	secondPass := make(map[int]int, 0)
-// 	for _, dupe := range dupes {
-// 		secondPass[dupe]++
-// 	}
+	// if len(distinct(dupes)) == len(dupes) {
+	// 	player.pairs = append(player.pairs, dupes...)
+	// 	return player
+	// }
+	// //count how many times each duplicate number appears
+	// secondPass := make(map[int]int, 0)
+	// for _, dupe := range dupes {
+	// 	secondPass[dupe]++
+	// }
 
-// 	return hand
-// }
+	// return player
+}
 
-// func findPairs(hand Hand) Hand {
+func findThreePairs(keptDice []int) bool {
 
-// 	visited := make(map[int]bool, 0)
+	visited := make(map[int]bool, 0)
+	var pairs []int
 
-// 	for i := 0; i < len(hand.rolls); i++ {
-// 		if visited[hand.rolls[i]] == true {
-// 			hand.pairs = append(hand.pairs, hand.rolls[i])
-// 		} else {
-// 			visited[hand.rolls[i]] = true
-// 		}
-// 	}
-// 	return hand
-//}
+	for i := 0; i < len(keptDice); i++ {
+		if visited[keptDice[i]] == true {
+			pairs = append(pairs, keptDice[i])
+		} else {
+			visited[keptDice[i]] = true
+		}
+	}
 
-// func findTrips(hand Hand) Hand {
+	if len(distinct(pairs)) == 3 {
+		return true
+	}
+	return false
+}
 
-// 	visited := make(map[int]bool, 0)
+func findTwoTriplets(keptDice []int) bool {
 
-// 	for i := 0; i < len(hand.pairs); i++ {
-// 		if visited[hand.pairs[i]] == true {
-// 			if !contains(hand.trips, hand.pairs[i]) {
-// 				hand.pairs = append(hand.trips, hand.pairs[i])
-// 			}
-// 		} else {
-// 			visited[hand.pairs[i]] = true
-// 		}
-// 	}
+	visited := make(map[int]bool, 0)
+	var dupes []int
+	var trips []int
 
-// 	hand.pairs = distinct(hand.pairs)
-// 	return hand
-// }
+	for i := 0; i < len(keptDice); i++ {
+		if visited[keptDice[i]] == true {
+			if contains(dupes, keptDice[i]) {
+				trips = append(trips, keptDice[i])
+			} else {
+				dupes = append(dupes, keptDice[i])
+			}
+		} else {
+			visited[keptDice[i]] = true
+		}
+	}
+
+	if len(distinct(trips)) == 2 {
+		return true
+	}
+	return false
+}
 
 func sort(n []int) []int {
 
@@ -293,6 +393,16 @@ func sort(n []int) []int {
 		}
 	}
 	return n
+}
+
+func sum(array []int) int {
+	result := 0
+
+	for _, v := range array {
+		result += v
+	}
+
+	return result
 }
 
 func distinct(intSlice []int) []int {
